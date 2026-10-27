@@ -1,0 +1,7 @@
+.env
+node_modules/
+frontend/dist/
+deploy/backups/
+*.log
+*.tsbuildinfo\
+WhatsApp-Campaign-Platform-Scope-of-Work.pdf

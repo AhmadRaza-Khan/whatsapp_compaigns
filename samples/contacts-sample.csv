@@ -1,0 +1,7 @@
+phone,name,email,tags
+5512 3456,Sara Al-Thani,sara@example.com,vip
++974 6612 3456,Fatima Khalid,,vip;abaya
+0097433123456,Noor Hassan,,
+974 7012 3456,Aisha Mohammed,,new
+12345,Invalid Row,,
+5512 3456,Duplicate of Sara,,

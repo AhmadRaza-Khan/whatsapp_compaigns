@@ -1,0 +1,90 @@
+# Production stack: Postgres, API, worker, Caddy (automatic HTTPS), daily backups.
+# On the VPS:  cp .env.example .env  (fill it in)  &&  docker compose up -d --build
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wacampaigns
+      POSTGRES_USER: wacampaigns
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wacampaigns -d wacampaigns"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    image: wacampaigns:latest
+    command: ["server"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://wacampaigns:${POSTGRES_PASSWORD}@db:5432/wacampaigns?sslmode=disable
+      PUBLIC_URL: https://${DOMAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Exactly one worker: it sends messages, starts scheduled campaigns and
+  # processes webhooks. A database lock stops a second one from sending.
+  worker:
+    image: wacampaigns:latest
+    command: ["worker"]
+    restart: unless-stopped
+    stop_grace_period: 40s
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://wacampaigns:${POSTGRES_PASSWORD}@db:5432/wacampaigns?sslmode=disable
+      PUBLIC_URL: https://${DOMAIN}
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  # Daily pg_dump at 02:00 Qatar time; keeps 7 daily, 4 weekly, 6 monthly.
+  # Copy deploy/backups off the server too (see docs/HANDOVER.md).
+  backup:
+    image: prodrigestivill/postgres-backup-local:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: wacampaigns
+      POSTGRES_USER: wacampaigns
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "0 2 * * *"
+      TZ: Asia/Qatar
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - ./deploy/backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
