@@ -6,6 +6,7 @@ import type { Template, TemplateSpec } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
 import { useAuth } from "../auth";
 import TemplatePreview from "../components/TemplatePreview";
+import ImageUpload from "../components/ImageUpload";
 import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Textarea, useToast } from "../components/ui";
 
 export default function Templates() {
@@ -190,9 +191,10 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
               </Select>
             </Field>
           </div>
-          <Field label="Header image example (optional)" hint="Public https:// link to a JPG/PNG. Each campaign can use a different image.">
-            <Input value={headerImage} onChange={(e) => setHeaderImage(e.target.value)} placeholder="https://…/banner.jpg" />
-          </Field>
+          <div>
+            <ImageUpload label="Header image" optional value={headerImage} onChange={setHeaderImage} />
+            <p className="mt-1 text-xs text-slate-500">A sample WhatsApp reviews. Each campaign uploads its own image.</p>
+          </div>
           <Field label="Message" hint="Use {{1}}, {{2}}… for parts that change per campaign (customer name, collection, offer). *bold* and _italic_ work.">
             <Textarea rows={4} required value={body} onChange={(e) => setBody(e.target.value)} dir="auto" />
           </Field>

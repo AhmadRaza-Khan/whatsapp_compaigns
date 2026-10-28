@@ -11,6 +11,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -212,7 +214,7 @@ func TestE2E(t *testing.T) {
 	defer birdSrv.Close()
 
 	cfg := &config.Config{Env: "development", JWTSecret: "test-secret-test-secret", PublicURL: "https://campaigns.example.com",
-		BirdAPIKey: "bk_eu1_test", BirdAPIHost: birdSrv.URL, BirdWebhookSecret: webhookSecret}
+		BirdAPIKey: "bk_eu1_test", BirdAPIHost: birdSrv.URL, BirdWebhookSecret: webhookSecret, UploadDir: t.TempDir()}
 	bc := bird.New(cfg.BirdAPIHost, cfg.BirdAPIKey)
 	apiSrv := httptest.NewServer(api.New(pool, cfg, bc).Router())
 	defer apiSrv.Close()
@@ -236,6 +238,26 @@ func TestE2E(t *testing.T) {
 	}
 	_ = c.do("PUT", "/api/settings", map[string]any{"marketing_rate": 0.0391, "currency": "USD", "send_rate_per_minute": 1000,
 		"default_region": "QA", "bird_from": "+97440000000", "stop_keywords": []string{"STOP"}, "name_fallback": "Customer"}, nil)
+
+	// Header image upload: real PNG accepted and served publicly; others refused.
+	var pngBuf bytes.Buffer
+	_ = png.Encode(&pngBuf, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	var up struct{ URL string }
+	if code := c.upload("/api/uploads/image", "banner.png", pngBuf.String(), nil, &up); code != 201 || !strings.HasPrefix(up.URL, cfg.PublicURL+"/media/") {
+		t.Fatalf("image upload failed: %d %+v", code, up)
+	}
+	mediaPath := strings.TrimPrefix(up.URL, cfg.PublicURL)
+	if resp, _ := http.Get(apiSrv.URL + mediaPath); resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/png" {
+		t.Fatalf("uploaded image not served: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if code := c.upload("/api/uploads/image", "evil.png", "<script>alert(1)</script>", nil, &struct{}{}); code != 400 {
+		t.Fatalf("non-image accepted: %d", code)
+	}
+	for _, p := range []string{"/media/../go.mod", "/media/00000000000000000000000000000000.png"} {
+		if resp, _ := http.Get(apiSrv.URL + p); resp.StatusCode != 404 {
+			t.Fatalf("%s should be 404, got %d", p, resp.StatusCode)
+		}
+	}
 
 	// --- Acceptance: import a 2,500-row file; duplicates and invalid flagged.
 	var sb strings.Builder

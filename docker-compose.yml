@@ -26,6 +26,8 @@ services:
     environment:
       DATABASE_URL: postgres://wacampaigns:${POSTGRES_PASSWORD}@db:5432/wacampaigns?sslmode=disable
       PUBLIC_URL: https://${DOMAIN}
+    volumes:
+      - media:/app/data/uploads   # uploaded campaign images (/media/...)
     depends_on:
       db:
         condition: service_healthy
@@ -86,5 +88,6 @@ services:
 
 volumes:
   pgdata:
+  media:
   caddy_data:
   caddy_config:

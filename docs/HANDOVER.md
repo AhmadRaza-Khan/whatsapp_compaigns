@@ -76,6 +76,7 @@ Open ports 80 and 443 only (`ufw allow 22,80,443/tcp`).
 | Backup now | `docker compose exec backup /backup.sh` |
 | Restore | `gunzip -c deploy/backups/daily/FILE.sql.gz \| docker compose exec -T db psql -U wacampaigns wacampaigns` |
 | Rotate Bird webhook secret | Bird API `POST /v1/webhooks/{id}/rotate-secret`, update `.env`, `docker compose up -d` |
+| Back up uploaded campaign images (volume `media`, not in the DB backup) | `docker run --rm -v wacampaigns_media:/m -v $PWD/deploy/backups:/b alpine tar czf /b/media-$(date +%F).tgz -C /m .` |
 | Change sending speed after plan change | Platform > Settings > Send speed |
 | Change Qatar marketing rate | Platform > Settings > Marketing rate |
 

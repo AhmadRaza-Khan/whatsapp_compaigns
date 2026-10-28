@@ -66,6 +66,7 @@ func (s *Server) Router() *gin.Engine {
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
 	r.POST("/webhooks/bird", s.birdWebhook)
 	r.GET("/r/:campaign/:token", s.clickRedirect)
+	r.GET("/media/:name", s.serveMedia)
 
 	api := r.Group("/api")
 	api.POST("/auth/login", s.login)
@@ -78,6 +79,7 @@ func (s *Server) Router() *gin.Engine {
 	authed.POST("/auth/change-password", s.changePassword)
 
 	authed.GET("/dashboard", s.dashboard)
+	authed.POST("/uploads/image", s.uploadImage)
 
 	authed.GET("/contacts", s.listContacts)
 	authed.POST("/contacts", s.createContact)

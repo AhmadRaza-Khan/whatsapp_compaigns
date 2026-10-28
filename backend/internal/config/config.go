@@ -17,6 +17,7 @@ type Config struct {
 	JWTSecret         string
 	PublicURL         string // e.g. https://campaigns.example.com (no trailing slash)
 	StaticDir         string // built frontend; served by the API when set
+	UploadDir         string // uploaded campaign images, served at /media/
 	BirdAPIKey        string
 	BirdAPIHost       string
 	BirdWebhookSecret string
@@ -35,6 +36,7 @@ func Load() (*Config, error) {
 		JWTSecret:         os.Getenv("JWT_SECRET"),
 		PublicURL:         strings.TrimRight(env("PUBLIC_URL", "http://localhost:5173"), "/"),
 		StaticDir:         os.Getenv("STATIC_DIR"),
+		UploadDir:         env("UPLOAD_DIR", "./data/uploads"),
 		BirdAPIKey:        os.Getenv("BIRD_API_KEY"),
 		BirdAPIHost:       strings.TrimRight(env("BIRD_API_HOST", "https://eu1.platform.bird.com"), "/"),
 		BirdWebhookSecret: os.Getenv("BIRD_WEBHOOK_SECRET"),

@@ -15,11 +15,12 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
 
 FROM alpine:3.22
-RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 app \
+    && mkdir -p /app/data/uploads && chown -R app:app /app/data
 WORKDIR /app
 COPY --from=api /out/app /app/app
 COPY --from=web /web/dist /app/web
-ENV STATIC_DIR=/app/web PORT=8080
+ENV STATIC_DIR=/app/web UPLOAD_DIR=/app/data/uploads PORT=8080
 USER app
 EXPOSE 8080
 ENTRYPOINT ["/app/app"]

@@ -7,3 +7,4 @@ deploy/backups/
 WhatsApp-Campaign-Platform-Scope-of-Work.pdf
 ab.txt
 .env
+backend/data/

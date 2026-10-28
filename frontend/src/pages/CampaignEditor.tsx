@@ -7,6 +7,7 @@ import type { Audience, CampaignDetail, Estimate, Group, TagCount, Template, Var
 import { fmtDuration, fmtMoney, fmtNum, qatarNowInput } from "../lib/format";
 import { useAuth } from "../auth";
 import TemplatePreview from "../components/TemplatePreview";
+import ImageUpload from "../components/ImageUpload";
 import { Button, Card, Field, Input, Loading, Modal, PageHeader, Select, useToast } from "../components/ui";
 
 const emptyVars: Variables = { header_media_url: "", header_text: [], body: [], buttons: [], shop_url: "" };
@@ -68,7 +69,7 @@ export default function CampaignEditor() {
     const m: string[] = [];
     if (!name.trim()) m.push("campaign name");
     if (!template) return [...m, "template"];
-    if (["image", "video", "document", "gif"].includes(spec!.header_format) && !vars.header_media_url.startsWith("https://")) m.push(`${spec!.header_format} link`);
+    if (["image", "video", "document", "gif"].includes(spec!.header_format) && !vars.header_media_url) m.push(spec!.header_format === "image" ? "header image" : `${spec!.header_format} link`);
     spec!.body_params?.forEach((_, i) => !vars.body[i]?.trim() && m.push(`message value ${i + 1}`));
     spec!.header_params?.forEach((_, i) => !vars.header_text[i]?.trim() && m.push(`header value ${i + 1}`));
     spec!.buttons?.forEach((b, i) => {
@@ -179,8 +180,11 @@ export default function CampaignEditor() {
 
               {spec && (
                 <>
-                  {["image", "video", "document", "gif"].includes(spec.header_format) && (
-                    <Field label={`${spec.header_format[0].toUpperCase()}${spec.header_format.slice(1)} link`} hint="A public https:// link, e.g. from your website or Shopify files. JPG/PNG up to 5 MB.">
+                  {spec.header_format === "image" && (
+                    <ImageUpload label="Header image" value={vars.header_media_url} onChange={(url) => setVars({ ...vars, header_media_url: url })} />
+                  )}
+                  {["video", "document", "gif"].includes(spec.header_format) && (
+                    <Field label={`${spec.header_format[0].toUpperCase()}${spec.header_format.slice(1)} link`} hint="A public https:// link to the file.">
                       <Input value={vars.header_media_url} onChange={(e) => setVars({ ...vars, header_media_url: e.target.value })} placeholder={spec.header_example_url || "https://…/collection.jpg"} />
                     </Field>
                   )}

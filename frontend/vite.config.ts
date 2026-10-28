@@ -12,6 +12,7 @@ export default defineConfig({
       "/api": backend,
       "/r/": backend,
       "/webhooks": backend,
+      "/media/": backend,
     },
   },
 });
