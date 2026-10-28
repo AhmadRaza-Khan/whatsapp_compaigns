@@ -36,7 +36,7 @@ Steps:
 5. Business name, photo and description are edited **in the WhatsApp Business app**, not in Bird.
 
 Record: **WABA ID**, **phone number ID**, the number in E.164 (e.g. `+97455123456`).
-**In the platform:** Settings > Sender number = the E.164 number (or Bird's number ID). Settings > WABA ID = the WABA ID.
+**In the platform:** Settings > Sender number = the number in E.164 format, e.g. `+97455123456` (Bird requires E.164 here, not the number ID). Settings > WABA ID = the WABA ID.
 
 ## 4. Meta Business Verification and display name
 

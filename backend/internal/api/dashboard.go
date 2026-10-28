@@ -100,6 +100,7 @@ func (s *Server) putSettings(c *gin.Context) {
 		fail(c, 400, "invalid settings")
 		return
 	}
+	st.BirdFrom = settings.CleanFrom(st.BirdFrom)
 	if err := st.Validate(); err != nil {
 		fail(c, 400, err.Error())
 		return

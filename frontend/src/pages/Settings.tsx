@@ -103,7 +103,7 @@ export default function SettingsPage() {
           </Card>
           <Card title="Bird">
             <div className="grid gap-4 p-5 sm:grid-cols-2">
-              <Field label="Sender number" hint="The connected WhatsApp number in E.164, e.g. +97412345678 (or Bird's number ID)">
+              <Field label="Sender number" hint="The connected WhatsApp number with country code, no spaces, e.g. +97455123456">
                 <Input value={s.bird_from} onChange={(e) => set("bird_from", e.target.value)} dir="ltr" />
               </Field>
               <Field label="WhatsApp Business Account (WABA) ID" hint="Needed to create templates from the platform">

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,7 +16,7 @@ type Settings struct {
 	Currency          string   `json:"currency"`             // display currency for the rate
 	SendRatePerMinute int      `json:"send_rate_per_minute"` // Bird plan limit: Startup 30, Growth 100
 	DefaultRegion     string   `json:"default_region"`       // ISO country for numbers without +, e.g. QA
-	BirdFrom          string   `json:"bird_from"`            // sender number (E.164) or Bird number ID
+	BirdFrom          string   `json:"bird_from"`            // connected sender number, E.164 (Bird rejects anything else)
 	BirdWABAID        string   `json:"bird_waba_id"`         // needed to create templates from the platform
 	BirdDashboardURL  string   `json:"bird_dashboard_url"`   // link to Bird's template screen
 	StopKeywords      []string `json:"stop_keywords"`
@@ -35,6 +36,13 @@ func Defaults() Settings {
 }
 
 const key = "app"
+
+var e164 = regexp.MustCompile(`^\+[1-9][0-9]{6,14}$`)
+
+// CleanFrom strips spaces, dashes and brackets so "+974 5512-3456" is accepted.
+func CleanFrom(v string) string {
+	return strings.NewReplacer(" ", "", "-", "", "(", "", ")", "").Replace(strings.TrimSpace(v))
+}
 
 func Load(ctx context.Context, db *pgxpool.Pool) (Settings, error) {
 	s := Defaults()
@@ -60,6 +68,9 @@ func (s Settings) Validate() error {
 	if s.SendRatePerMinute < 1 || s.SendRatePerMinute > 1000 {
 		return fmt.Errorf("send rate must be between 1 and 1000 per minute")
 	}
+	if s.BirdFrom != "" && !e164.MatchString(s.BirdFrom) {
+		return fmt.Errorf("sender number must include the country code, e.g. +97455123456")
+	}
 	if len(s.DefaultRegion) != 2 {
 		return fmt.Errorf("default region must be a 2-letter country code, e.g. QA")
 	}
@@ -68,7 +79,7 @@ func (s Settings) Validate() error {
 
 func Save(ctx context.Context, db *pgxpool.Pool, s Settings) error {
 	s.DefaultRegion = strings.ToUpper(s.DefaultRegion)
-	s.BirdFrom = strings.TrimSpace(s.BirdFrom)
+	s.BirdFrom = CleanFrom(s.BirdFrom)
 	s.BirdWABAID = strings.TrimSpace(s.BirdWABAID)
 	kw := s.StopKeywords[:0]
 	for _, k := range s.StopKeywords {

@@ -11,10 +11,11 @@ Fill in every blank before handing over. Keep secrets in a password manager, not
 | Plan | Startup / Growth |
 | Owner (billing) | client: |
 | Cyberboost member | |
-| WABA ID | |
-| Phone number (E.164) | |
-| Phone number ID | |
-| Messaging limit at go-live | |
+| WABA ID | 1521812389495590 |
+| Meta business ID | 1586180599483672 |
+| Phone number (E.164) | +974…76 (display name ALDUKAN, coexistence) |
+| Phone number ID (Bird) | wan_01m61anfvredqs8np30zg5z315 |
+| Messaging limit at go-live | tier_250 on 2026-10-28 (business not yet verified) |
 | API key name (value in password manager) | campaign-platform |
 | Webhook ID | whk_01m61pxyhrfcjszj5td3xxm8r4 |
 | Webhook URL | https://shopaldukan.cyberboost.io/webhooks/bird |
