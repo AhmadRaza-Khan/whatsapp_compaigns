@@ -212,7 +212,7 @@ export default function CampaignEditor() {
                   ))}
                   {spec.buttons?.map((b, i) =>
                     b.tracked ? (
-                      <Field key={`btn${i}`} label={`"${b.text}" button opens`} hint="Your shop page for this collection. Clicks are counted before forwarding.">
+                      <Field key={`btn${i}`} label={`"${b.text}" link`} hint="The full link to the page on your shop for this campaign.">
                         <Input value={vars.shop_url} onChange={(e) => setVars({ ...vars, shop_url: e.target.value })} placeholder="https://yourshop.com/collections/winter" />
                       </Field>
                     ) : (

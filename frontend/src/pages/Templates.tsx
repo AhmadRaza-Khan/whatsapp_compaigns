@@ -105,7 +105,6 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
   const [examples, setExamples] = useState<string[]>(["Sara", "Winter", "Enjoy 20% off this week."]);
   const [footer, setFooter] = useState("Reply STOP to unsubscribe");
   const [shopButton, setShopButton] = useState("Shop Now");
-  const [shopUrl, setShopUrl] = useState("");
   const [stopButton, setStopButton] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -116,7 +115,7 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
     body,
     body_params: Array.from({ length: varCount }, (_, i) => ({ example: examples[i] ?? "" })),
     footer,
-    buttons: [...(shopButton ? [{ type: "url", text: shopButton, tracked: false }] : []), ...(stopButton ? [{ type: "quick_reply", text: "Stop promotions", tracked: false }] : [])],
+    buttons: [...(shopButton ? [{ type: "url", text: shopButton, tracked: true }] : []), ...(stopButton ? [{ type: "quick_reply", text: "Stop promotions", tracked: false }] : [])],
   };
 
   const submit = async (e: FormEvent) => {
@@ -133,7 +132,6 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
         body_examples: examples.slice(0, varCount),
         footer,
         shop_button_text: shopButton,
-        shop_url: shopUrl,
         stop_button: stopButton,
       });
       toast.success("Template submitted to WhatsApp for approval. Approval usually takes minutes to a day.");
@@ -220,16 +218,9 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
           <Field label="Footer (optional)">
             <Input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={60} />
           </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Shop button text" hint="Leave empty for no button.">
-              <Input value={shopButton} onChange={(e) => setShopButton(e.target.value)} maxLength={25} />
-            </Field>
-            {shopButton.trim() && (
-              <Field label="Shop website" hint="Each campaign adds the page, e.g. collections/winter.">
-                <Input required value={shopUrl} onChange={(e) => setShopUrl(e.target.value)} placeholder="https://yourshop.com" dir="ltr" />
-              </Field>
-            )}
-          </div>
+          <Field label="Shop button text" hint="You add the shop link in each campaign. Leave empty for no button.">
+            <Input value={shopButton} onChange={(e) => setShopButton(e.target.value)} maxLength={25} />
+          </Field>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={stopButton} onChange={(e) => setStopButton(e.target.checked)} />
             Add a "Stop promotions" quick-reply button (counts as opt-out)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -97,8 +96,7 @@ func (s *Server) createTemplate(c *gin.Context) {
 		Body           string   `json:"body"`
 		BodyExamples   []string `json:"body_examples"`
 		Footer         string   `json:"footer"`
-		ShopButtonText string   `json:"shop_button_text"` // empty = no button
-		ShopURL        string   `json:"shop_url"`         // shop website; each campaign adds the page
+		ShopButtonText string   `json:"shop_button_text"` // empty = no button; the link is set per campaign
 		StopButton     bool     `json:"stop_button"`
 	}
 	if err := c.ShouldBindJSON(&in); err != nil {
@@ -163,16 +161,11 @@ func (s *Server) createTemplate(c *gin.Context) {
 	}
 	var buttons []map[string]any
 	if t := strings.TrimSpace(in.ShopButtonText); t != "" {
-		// WhatsApp fixes the button URL at approval; only a variable at the end
-		// can change per campaign. So the button is "<shop website>/{{1}}" and
-		// each campaign fills in the page.
-		base := strings.TrimRight(strings.TrimSpace(in.ShopURL), "/")
-		if u, err := url.Parse(base); err != nil || u.Scheme != "https" || u.Host == "" {
-			fail(c, 400, "Enter your shop website for the button, e.g. https://yourshop.com")
-			return
-		}
-		buttons = append(buttons, map[string]any{"type": "url", "text": t, "url": base + "/{{1}}",
-			"example_parameters": []map[string]any{{"type": "text", "text": "collections/new-arrivals"}}})
+		// WhatsApp needs a fixed website in the approved button, so the button
+		// points at this platform's /r/ redirect; each campaign stores the real
+		// shop link and the redirect forwards to it.
+		buttons = append(buttons, map[string]any{"type": "url", "text": t, "url": s.cfg.PublicURL + "/r/{{1}}",
+			"example_parameters": []map[string]any{{"type": "text", "text": "1/example"}}})
 	}
 	if in.StopButton {
 		buttons = append(buttons, map[string]any{"type": "quick_reply", "text": "Stop promotions"})
