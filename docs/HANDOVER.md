@@ -16,8 +16,8 @@ Fill in every blank before handing over. Keep secrets in a password manager, not
 | Phone number ID | |
 | Messaging limit at go-live | |
 | API key name (value in password manager) | campaign-platform |
-| Webhook ID | |
-| Webhook URL | https://DOMAIN/webhooks/bird |
+| Webhook ID | whk_01m61pxyhrfcjszj5td3xxm8r4 |
+| Webhook URL | https://shopaldukan.cyberboost.io/webhooks/bird |
 | Template slugs | collection_launch, … |
 
 ## Hosting

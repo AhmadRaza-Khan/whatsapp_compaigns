@@ -3,6 +3,7 @@ node_modules/
 frontend/dist/
 deploy/backups/
 *.log
-*.tsbuildinfo\
+*.tsbuildinfo
 WhatsApp-Campaign-Platform-Scope-of-Work.pdf
 ab.txt
+.env
