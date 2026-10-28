@@ -39,8 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh: () => me.refetch(),
     logout: async () => {
       await api.post("/auth/logout").catch(() => {});
-      qc.clear();
+      // Update "me" in place (its observer stays attached), then drop the rest.
+      // qc.clear() would detach the observer and leave the UI logged in.
       qc.setQueryData(["me"], null);
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
     },
   };
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;

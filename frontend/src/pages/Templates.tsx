@@ -150,7 +150,7 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
       open
       onClose={onClose}
       title="New template"
-      wide
+      wide="xl"
       footer={
         <>
           {birdURL && (
@@ -169,7 +169,7 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="grid gap-6 md:grid-cols-[1fr_280px]">
+      <div className="grid gap-6 md:grid-cols-[1fr_400px]">
         <form id="tpl-form" onSubmit={submit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Field label="Template ID" hint="lowercase_with_underscores">
@@ -218,7 +218,14 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
           <Field label="Footer (optional)">
             <Input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={60} />
           </Field>
-          <Field label="Shop button text" hint="Links through the platform so clicks are counted. Leave empty for no button.">
+          <Field
+            label="Shop button text"
+            hint={
+              <>
+                The button opens <code className="text-slate-700">{window.location.origin}/r/…</code>, which counts the click and forwards to your shop. You enter the actual shop page in each campaign. Leave empty for no button.
+              </>
+            }
+          >
             <Input value={shopButton} onChange={(e) => setShopButton(e.target.value)} maxLength={25} />
           </Field>
           <label className="flex items-center gap-2 text-sm">
@@ -227,8 +234,10 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
           </label>
         </form>
         <div>
-          <p className="mb-2 text-sm font-medium text-slate-700">Preview</p>
-          <TemplatePreview spec={spec} />
+          <div className="md:sticky md:top-0">
+            <p className="mb-2 text-sm font-medium text-slate-700">Preview</p>
+            <TemplatePreview spec={spec} size="lg" />
+          </div>
         </div>
       </div>
     </Modal>

@@ -1,4 +1,5 @@
 import { ExternalLink, Image as ImageIcon, Reply } from "lucide-react";
+import { cx } from "./ui";
 import type { TemplateSpec, Variables } from "../lib/types";
 
 /** Fill {{1}} / {{name}} placeholders with values (or examples when empty). */
@@ -30,11 +31,12 @@ function Rich({ text }: { text: string }) {
   );
 }
 
-export default function TemplatePreview({ spec, values, sampleName = "Sara" }: { spec: TemplateSpec; values?: Partial<Variables>; sampleName?: string }) {
+export default function TemplatePreview({ spec, values, sampleName = "Sara", size = "md" }: { spec: TemplateSpec; values?: Partial<Variables>; sampleName?: string; size?: "md" | "lg" }) {
+  const lg = size === "lg";
   const media = values?.header_media_url || spec.header_example_url;
   return (
-    <div className="rounded-xl bg-[#e5ddd5] p-4" style={{ backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px)", backgroundSize: "12px 12px" }}>
-      <div className="max-w-xs rounded-lg rounded-tl-none bg-white text-[14px] leading-snug text-slate-800 shadow-sm">
+    <div className={cx("rounded-xl bg-[#e5ddd5]", lg ? "px-6 py-8 sm:px-8" : "p-4")} style={{ backgroundImage: "radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px)", backgroundSize: "12px 12px" }}>
+      <div className={cx("rounded-lg rounded-tl-none bg-white leading-snug text-slate-800 shadow-sm", lg ? "max-w-sm text-[15px]" : "max-w-xs text-[14px]")}>
         {spec.header_format === "image" && (
           <div className="p-1">
             {media ? (

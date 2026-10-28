@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { FileText, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Shield, UserCircle, Users, UsersRound } from "lucide-react";
 import { useAuth } from "../auth";
 import { cx } from "./ui";
@@ -20,6 +20,7 @@ const adminNav: NavItem[] = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const items = user?.role === "admin" ? [...nav, ...adminNav] : nav;
 
@@ -57,7 +58,12 @@ export default function Layout() {
           <span className="min-w-0 flex-1 truncate">{user?.name || user?.email}</span>
           <span className="rounded bg-white/15 px-1.5 text-[10px] uppercase">{user?.role}</span>
         </NavLink>
-        <button onClick={logout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-emerald-50/80 hover:bg-white/10 hover:text-white">
+        <button
+          onClick={async () => {
+            await logout();
+            navigate("/login", { replace: true });
+          }}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-emerald-50/80 hover:bg-white/10 hover:text-white">
           <LogOut className="size-4" />
           Log out
         </button>
