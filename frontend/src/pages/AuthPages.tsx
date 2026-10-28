@@ -8,11 +8,11 @@ import { Button, Field, Input } from "../components/ui";
 
 function AuthShell({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-700 to-brand-600 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-800 to-brand-600 px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center justify-center gap-2 text-white">
-          <img src="/favicon.svg" alt="" className="size-9 rounded-lg ring-2 ring-white/30" />
-          <span className="text-lg font-semibold">WhatsApp Campaigns</span>
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <img src="/logo.jpeg" alt="ShopAldukan" className="size-28 rounded-2xl shadow-lg ring-1 ring-cream/20" />
+          <span className="text-sm tracking-wide text-cream/70">WhatsApp campaigns</span>
         </div>
         <div className="rounded-xl bg-white p-6 shadow-xl">
           <h1 className="mb-4 text-lg font-semibold text-slate-900">{title}</h1>

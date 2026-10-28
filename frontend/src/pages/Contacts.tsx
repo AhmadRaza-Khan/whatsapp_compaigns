@@ -410,7 +410,7 @@ function ImportModal({ groups, onClose, onDone }: { groups: Group[]; onClose: ()
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             ["Rows", result.total, ""],
-            ["New", result.created, "text-emerald-700"],
+            ["New", result.created, "text-brand-700"],
             ["Updated", result.updated, "text-blue-700"],
             ["Duplicates", result.duplicates, result.duplicates ? "text-amber-600" : ""],
             ["Invalid", result.invalid, result.invalid ? "text-red-600" : ""],
@@ -466,7 +466,7 @@ function ImportModal({ groups, onClose, onDone }: { groups: Group[]; onClose: ()
             </div>
           </>
         ) : (
-          <p className="text-sm text-emerald-700">Every row was valid.</p>
+          <p className="text-sm text-brand-700">Every row was valid.</p>
         )}
       </Modal>
     );

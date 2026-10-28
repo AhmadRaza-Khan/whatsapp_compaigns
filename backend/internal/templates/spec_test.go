@@ -43,3 +43,27 @@ func TestParseAndBuild(t *testing.T) {
 		t.Fatal("empty body value accepted")
 	}
 }
+
+func TestDirectShopLink(t *testing.T) {
+	spec, err := Parse(json.RawMessage(`[
+	 {"type":"body","text":"New arrivals are in!"},
+	 {"type":"buttons","buttons":[{"type":"url","text":"Shop Now","url":"https://aldukan.qa/{{1}}","example_parameters":[{"type":"text","text":"collections/new-arrivals"}]}]}
+	]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.Buttons[0].Tracked || len(spec.Buttons[0].Params) != 1 {
+		t.Fatalf("shop-website button should be a plain link with one value: %+v", spec.Buttons[0])
+	}
+	v := Variables{Buttons: [][]string{{"collections/winter"}}}
+	if err := spec.Validate(v); err != nil {
+		t.Fatal(err)
+	}
+	comps := spec.Build(v, "Sara", "Customer", "ignored/for-untracked")
+	if len(comps) != 1 || comps[0].Type != "button" || comps[0].Parameters[0].Text != "collections/winter" {
+		t.Fatalf("button should carry the campaign's page: %+v", comps)
+	}
+	if spec.Validate(Variables{}) == nil {
+		t.Fatal("missing shop page accepted")
+	}
+}

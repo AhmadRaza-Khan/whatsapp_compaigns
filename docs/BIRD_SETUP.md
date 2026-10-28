@@ -58,17 +58,19 @@ Until the limit covers the full list, send campaigns in batches (one group per d
 
 ## 6. First templates
 
-**Option A (recommended): from the platform.** Templates > New template. This builds the tracked Shop Now button automatically.
+**Option A (recommended): from the platform.** Templates > New template. Enter the Shop Now button text and the shop website; the button becomes `https://<shop website>/{{1}}` and each campaign fills in the page.
 
 Marketing launch template, e.g. `collection_launch`:
 - Header: image (example URL of a product photo)
 - Body: `Hi {{1}}, our new {{2}} collection has arrived! {{3}}` with examples `Sara`, `Winter`, `Enjoy 20% off this week.`
 - Footer: `Reply STOP to unsubscribe`
-- Buttons: URL **Shop Now** → `https://<DOMAIN>/r/{{1}}` (dynamic suffix), quick reply **Stop promotions**
+- Buttons: URL **Shop Now** → `https://<shop website>/{{1}}` (dynamic suffix, e.g. `collections/winter` per campaign), quick reply **Stop promotions**
 
 Optional utility template (e.g. `order_update`): body `Hi {{1}}, your order {{2}} is ready for pickup.`
 
-**Option B: in Bird's dashboard.** The URL button must be **dynamic** with base URL exactly `https://<DOMAIN>/r/{{1}}` (copy it from platform > Settings), otherwise clicks are not tracked.
+**Option B: in Bird's dashboard.** Make the URL button **dynamic**: `https://<shop website>/{{1}}`.
+
+Click tracking is optional: a button pointing to `https://<DOMAIN>/r/{{1}}` instead goes through the platform, which records who clicked and then forwards to the campaign's shop link. Direct shop links are simpler, but the reports then show 0 clicks.
 
 Approval takes minutes to 24h. Then platform > Templates > **Sync from Bird**. Status must be `active` with the language `approved`.
 

@@ -120,10 +120,10 @@ func (s *Server) forgotPassword(c *gin.Context) {
 		return
 	}
 	link := s.cfg.PublicURL + "/reset-password?token=" + token
-	body := "A password reset was requested for your WhatsApp Campaigns account.\n\n" +
+	body := "A password reset was requested for your ShopAldukan account.\n\n" +
 		"Open this link within 1 hour to choose a new password:\n" + link +
 		"\n\nIf you did not request this, you can ignore this email."
-	if err := s.mailer.Send(email, "Reset your password", body); err != nil {
+	if err := s.mailer.Send(email, "Reset your ShopAldukan password", body); err != nil {
 		// Without SMTP the link is written to the server log for the admin.
 		slog.Warn("password reset email not sent; link logged instead", "email", email, "link", link, "err", err)
 	}

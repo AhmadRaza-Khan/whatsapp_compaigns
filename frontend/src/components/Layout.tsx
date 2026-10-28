@@ -27,10 +27,10 @@ export default function Layout() {
   const sidebar = (
     <nav className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-5 py-5">
-        <img src="/favicon.svg" alt="" className="size-8" />
+        <img src="/logo.jpeg" alt="ShopAldukan" className="size-10 rounded-lg ring-1 ring-cream/20" />
         <div>
-          <p className="text-sm font-semibold text-white">WhatsApp Campaigns</p>
-          <p className="text-xs text-emerald-100/70">powered by Bird</p>
+          <p className="text-sm font-semibold tracking-wide text-cream">ShopAldukan</p>
+          <p className="text-xs text-cream/60">WhatsApp campaigns</p>
         </div>
       </div>
       <div className="flex-1 space-y-0.5 px-3">
@@ -43,7 +43,7 @@ export default function Layout() {
             className={({ isActive }) =>
               cx(
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive ? "bg-white/15 text-white" : "text-emerald-50/80 hover:bg-white/10 hover:text-white",
+                isActive ? "bg-cream/15 text-cream" : "text-cream/75 hover:bg-cream/10 hover:text-cream",
               )
             }
           >
@@ -52,18 +52,18 @@ export default function Layout() {
           </NavLink>
         ))}
       </div>
-      <div className="border-t border-white/10 p-3">
-        <NavLink to="/account" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-emerald-50/80 hover:bg-white/10 hover:text-white">
+      <div className="border-t border-cream/10 p-3">
+        <NavLink to="/account" onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-cream/75 hover:bg-cream/10 hover:text-cream">
           <UserCircle className="size-4" />
           <span className="min-w-0 flex-1 truncate">{user?.name || user?.email}</span>
-          <span className="rounded bg-white/15 px-1.5 text-[10px] uppercase">{user?.role}</span>
+          <span className="rounded bg-cream/15 px-1.5 text-[10px] uppercase">{user?.role}</span>
         </NavLink>
         <button
           onClick={async () => {
             await logout();
             navigate("/login", { replace: true });
           }}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-emerald-50/80 hover:bg-white/10 hover:text-white">
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-cream/75 hover:bg-cream/10 hover:text-cream">
           <LogOut className="size-4" />
           Log out
         </button>
@@ -86,7 +86,8 @@ export default function Layout() {
         <button onClick={() => setOpen(true)} aria-label="Open menu" className="rounded p-1 text-slate-600 hover:bg-slate-100">
           <Menu className="size-5" />
         </button>
-        <span className="font-semibold">WhatsApp Campaigns</span>
+        <img src="/logo.jpeg" alt="" className="size-7 rounded" />
+        <span className="font-semibold text-brand-700">ShopAldukan</span>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <Outlet />

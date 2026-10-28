@@ -10,8 +10,8 @@ function Funnel({ s, currency }: { s: Stats; currency: string }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       <StatCard label="Sent" value={fmtNum(s.sent)} sub={`${fmtNum(s.recipients)} recipients`} />
-      <StatCard label="Delivered" value={fmtNum(s.delivered)} sub={pct(s.delivered, s.sent)} accent="text-emerald-700" />
-      <StatCard label="Read" value={fmtNum(s.read)} sub={pct(s.read, s.delivered)} accent="text-emerald-700" />
+      <StatCard label="Delivered" value={fmtNum(s.delivered)} sub={pct(s.delivered, s.sent)} accent="text-brand-700" />
+      <StatCard label="Read" value={fmtNum(s.read)} sub={pct(s.read, s.delivered)} accent="text-brand-700" />
       <StatCard label="Clicked" value={fmtNum(s.clicked)} sub={pct(s.clicked, s.delivered)} accent="text-blue-700" />
       <StatCard label="Failed" value={fmtNum(s.failed)} sub={pct(s.failed, s.recipients)} accent={s.failed ? "text-red-600" : undefined} />
       <StatCard label="Cost" value={fmtMoney(s.actual_cost, s.cost_currency || currency)} sub={`${fmtNum(s.priced_count)} priced`} />

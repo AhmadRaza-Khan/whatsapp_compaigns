@@ -138,8 +138,8 @@ export default function CampaignReport() {
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <StatCard label="Recipients" value={fmtNum(s.recipients || detail.data.estimate?.eligible || 0)} sub={s.skipped ? `${s.skipped} skipped` : undefined} />
         <StatCard label="Sent" value={fmtNum(s.sent)} sub={s.queued ? `${fmtNum(s.queued)} queued` : pct(s.sent, s.recipients)} />
-        <StatCard label="Delivered" value={fmtNum(s.delivered)} sub={pct(s.delivered, s.sent)} accent="text-emerald-700" />
-        <StatCard label="Read" value={fmtNum(s.read)} sub={pct(s.read, s.delivered)} accent="text-emerald-700" />
+        <StatCard label="Delivered" value={fmtNum(s.delivered)} sub={pct(s.delivered, s.sent)} accent="text-brand-700" />
+        <StatCard label="Read" value={fmtNum(s.read)} sub={pct(s.read, s.delivered)} accent="text-brand-700" />
         <StatCard label="Clicked" value={fmtNum(s.clicked)} sub={`${fmtNum(s.clicks)} clicks · ${pct(s.clicked, s.delivered)}`} accent="text-blue-700" />
         <StatCard label="Replies" value={fmtNum(s.replied)} />
         <StatCard label="Failed" value={fmtNum(s.failed)} sub={pct(s.failed, s.recipients)} accent={s.failed ? "text-red-600" : undefined} />

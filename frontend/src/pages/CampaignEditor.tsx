@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarClock, Info, Send, Smartphone } from "lucide-react";
+import { AlertTriangle, CalendarClock, Send, Smartphone } from "lucide-react";
 import { api } from "../lib/api";
 import type { Audience, CampaignDetail, Estimate, Group, TagCount, Template, Variables } from "../lib/types";
 import { fmtDuration, fmtMoney, fmtNum, qatarNowInput } from "../lib/format";
@@ -74,7 +74,7 @@ export default function CampaignEditor() {
     spec!.header_params?.forEach((_, i) => !vars.header_text[i]?.trim() && m.push(`header value ${i + 1}`));
     spec!.buttons?.forEach((b, i) => {
       if (b.tracked && !/^https?:\/\/.+\..+/.test(vars.shop_url)) m.push(`"${b.text}" link`);
-      if (!b.tracked && b.params?.length) b.params.forEach((_, j) => !vars.buttons[i]?.[j]?.trim() && m.push(`"${b.text}" value`));
+      if (!b.tracked && b.params?.length) b.params.forEach((_, j) => !vars.buttons[i]?.[j]?.trim() && m.push(`"${b.text}" ${b.type === "url" ? "link" : "value"}`));
     });
     if (!audience.all && !audience.group_ids.length && !audience.tags.length) m.push("audience");
     return m;
@@ -216,25 +216,37 @@ export default function CampaignEditor() {
                         <Input value={vars.shop_url} onChange={(e) => setVars({ ...vars, shop_url: e.target.value })} placeholder="https://yourshop.com/collections/winter" />
                       </Field>
                     ) : (
-                      b.params?.map((p, j) => (
-                        <Field key={`btn${i}-${j}`} label={`"${b.text}" button value`} hint={p.example && `Example: ${p.example}`}>
-                          <Input
-                            value={vars.buttons[i]?.[j] ?? ""}
-                            onChange={(e) => {
-                              const bs = vars.buttons.map((x) => [...(x ?? [])]);
-                              while (bs.length <= i) bs.push([]);
-                              bs[i][j] = e.target.value;
-                              setVars({ ...vars, buttons: bs });
-                            }}
-                          />
-                        </Field>
-                      ))
+                      b.params?.map((p, j) => {
+                        const value = vars.buttons[i]?.[j] ?? "";
+                        // For a link button, everything before {{1}} is fixed by the template.
+                        const base = b.type === "url" ? (b.url ?? "").split("{{")[0] : "";
+                        const setValue = (v: string) => {
+                          if (base && v.startsWith(base)) v = v.slice(base.length); // pasted the full link
+                          const bs = vars.buttons.map((x) => [...(x ?? [])]);
+                          while (bs.length <= i) bs.push([]);
+                          bs[i][j] = v;
+                          setVars({ ...vars, buttons: bs });
+                        };
+                        return base ? (
+                          <Field
+                            key={`btn${i}-${j}`}
+                            label={`"${b.text}" link`}
+                            hint={value ? `Opens ${base}${value}` : "Type the page, or paste the full link from your shop."}
+                          >
+                            <div className="flex rounded-lg shadow-sm">
+                              <span className="flex items-center rounded-l-lg border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm text-slate-500" dir="ltr">
+                                {base}
+                              </span>
+                              <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={p.example || "collections/winter"} className="rounded-l-none shadow-none" dir="ltr" />
+                            </div>
+                          </Field>
+                        ) : (
+                          <Field key={`btn${i}-${j}`} label={`"${b.text}" button value`} hint={p.example && `Example: ${p.example}`}>
+                            <Input value={value} onChange={(e) => setValue(e.target.value)} />
+                          </Field>
+                        );
+                      })
                     ),
-                  )}
-                  {!spec.buttons?.some((b) => b.tracked) && (
-                    <p className="flex gap-2 text-xs text-slate-500">
-                      <Info className="size-4 shrink-0" /> This template has no tracked Shop Now button, so clicks won't be counted.
-                    </p>
                   )}
                 </>
               )}
