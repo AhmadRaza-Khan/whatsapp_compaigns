@@ -7,6 +7,7 @@ import { fmtDateTime } from "../lib/format";
 import { useAuth } from "../auth";
 import TemplatePreview from "../components/TemplatePreview";
 import ImageUpload from "../components/ImageUpload";
+import DocumentUpload from "../components/DocumentUpload";
 import { Badge, Button, Card, EmptyState, Field, Input, Loading, Modal, PageHeader, Select, StatusBadge, Textarea, useToast } from "../components/ui";
 
 export default function Templates() {
@@ -100,7 +101,9 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("marketing");
   const [language, setLanguage] = useState("en");
+  const [headerType, setHeaderType] = useState<"none" | "image" | "document">("none");
   const [headerImage, setHeaderImage] = useState("");
+  const [headerDoc, setHeaderDoc] = useState({ url: "", filename: "" });
   const [body, setBody] = useState("Hi {{1}}, our new {{2}} collection has arrived! {{3}}");
   const [examples, setExamples] = useState<string[]>(["Sara", "Winter", "Enjoy 20% off this week."]);
   const [footer, setFooter] = useState("Reply STOP to unsubscribe");
@@ -110,8 +113,8 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
 
   const varCount = useMemo(() => Math.max(0, ...[...body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1]))), [body]);
   const spec: TemplateSpec = {
-    header_format: headerImage ? "image" : "",
-    header_example_url: headerImage,
+    header_format: headerType === "none" ? "" : headerType,
+    header_example_url: headerType === "image" ? headerImage : headerType === "document" ? headerDoc.url : "",
     body,
     body_params: Array.from({ length: varCount }, (_, i) => ({ example: examples[i] ?? "" })),
     footer,
@@ -120,6 +123,10 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if ((headerType === "image" && !headerImage) || (headerType === "document" && !headerDoc.url)) {
+      toast.error(`Upload a sample ${headerType === "image" ? "image" : "PDF"} for the header, or choose None.`);
+      return;
+    }
     setBusy(true);
     try {
       await api.post("/templates", {
@@ -127,7 +134,8 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
         name,
         category,
         language,
-        header_image_url: headerImage,
+        header_image_url: headerType === "image" ? headerImage : "",
+        header_document_url: headerType === "document" ? headerDoc.url : "",
         body,
         body_examples: examples.slice(0, varCount),
         footer,
@@ -191,9 +199,31 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
               </Select>
             </Field>
           </div>
-          <div>
-            <ImageUpload label="Header image" optional value={headerImage} onChange={setHeaderImage} />
-            <p className="mt-1 text-xs text-slate-500">A sample WhatsApp reviews. Each campaign uploads its own image.</p>
+          <div className="space-y-3">
+            <div>
+              <span className="mb-1 block text-sm font-medium text-slate-700">Header</span>
+              <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5 text-sm shadow-sm">
+                {([
+                  ["none", "None"],
+                  ["image", "Image"],
+                  ["document", "PDF"],
+                ] as const).map(([v, l]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setHeaderType(v)}
+                    className={`rounded-md px-3 py-1.5 font-medium ${headerType === v ? "bg-brand-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {headerType === "image" && <ImageUpload label="Sample image" value={headerImage} onChange={setHeaderImage} />}
+            {headerType === "document" && (
+              <DocumentUpload label="Sample PDF" url={headerDoc.url} filename={headerDoc.filename} onChange={(url, filename) => setHeaderDoc({ url, filename })} />
+            )}
+            {headerType !== "none" && <p className="text-xs text-slate-500">A sample WhatsApp reviews. Each campaign uploads its own {headerType === "image" ? "image" : "PDF"}.</p>}
           </div>
           <Field label="Message" hint="Use {{1}}, {{2}}… for parts that change per campaign (customer name, collection, offer). *bold* and _italic_ work.">
             <Textarea rows={4} required value={body} onChange={(e) => setBody(e.target.value)} dir="auto" />

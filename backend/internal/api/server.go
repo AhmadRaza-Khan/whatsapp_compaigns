@@ -59,7 +59,7 @@ func (s *Server) Router() *gin.Engine {
 	}
 	r := gin.New()
 	r.Use(gin.Recovery(), requestLogger(), securityHeaders())
-	r.MaxMultipartMemory = 12 << 20
+	r.MaxMultipartMemory = 32 << 20
 	// Behind Caddy: trust the proxy on the docker network for client IPs.
 	_ = r.SetTrustedProxies([]string{"127.0.0.1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"})
 
@@ -80,6 +80,7 @@ func (s *Server) Router() *gin.Engine {
 
 	authed.GET("/dashboard", s.dashboard)
 	authed.POST("/uploads/image", s.uploadImage)
+	authed.POST("/uploads/document", s.uploadDocument)
 
 	authed.GET("/contacts", s.listContacts)
 	authed.POST("/contacts", s.createContact)

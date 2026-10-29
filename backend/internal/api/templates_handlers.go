@@ -88,16 +88,17 @@ var positional = regexp.MustCompile(`\{\{(\d+)\}\}`)
 // submits it to Meta for approval.
 func (s *Server) createTemplate(c *gin.Context) {
 	var in struct {
-		Slug           string   `json:"slug"`
-		Name           string   `json:"name"`
-		Category       string   `json:"category"`
-		Language       string   `json:"language"`
-		HeaderImageURL string   `json:"header_image_url"`
-		Body           string   `json:"body"`
-		BodyExamples   []string `json:"body_examples"`
-		Footer         string   `json:"footer"`
-		ShopButtonText string   `json:"shop_button_text"` // empty = no button; the link is set per campaign
-		StopButton     bool     `json:"stop_button"`
+		Slug              string   `json:"slug"`
+		Name              string   `json:"name"`
+		Category          string   `json:"category"`
+		Language          string   `json:"language"`
+		HeaderImageURL    string   `json:"header_image_url"`
+		HeaderDocumentURL string   `json:"header_document_url"`
+		Body              string   `json:"body"`
+		BodyExamples      []string `json:"body_examples"`
+		Footer            string   `json:"footer"`
+		ShopButtonText    string   `json:"shop_button_text"` // empty = no button; the link is set per campaign
+		StopButton        bool     `json:"stop_button"`
 	}
 	if err := c.ShouldBindJSON(&in); err != nil {
 		fail(c, 400, "invalid request")
@@ -146,6 +147,13 @@ func (s *Server) createTemplate(c *gin.Context) {
 		}
 		comps = append(comps, map[string]any{"type": "header", "format": "image",
 			"example_parameters": []map[string]any{{"type": "image", "url": in.HeaderImageURL}}})
+	} else if in.HeaderDocumentURL != "" {
+		if !strings.HasPrefix(in.HeaderDocumentURL, "https://") {
+			fail(c, 400, "Header PDF must be a public https:// URL")
+			return
+		}
+		comps = append(comps, map[string]any{"type": "header", "format": "document",
+			"example_parameters": []map[string]any{{"type": "document", "url": in.HeaderDocumentURL}}})
 	}
 	bodyComp := map[string]any{"type": "body", "text": body}
 	if nVars > 0 {

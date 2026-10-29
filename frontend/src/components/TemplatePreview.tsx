@@ -48,7 +48,16 @@ export default function TemplatePreview({ spec, values, sampleName = "Sara", siz
             )}
           </div>
         )}
-        {["video", "document", "gif"].includes(spec.header_format) && (
+        {spec.header_format === "document" && (
+          <div className="m-1 flex items-center gap-3 rounded-md bg-slate-100 p-3">
+            <div className="flex h-10 w-8 shrink-0 items-center justify-center rounded bg-red-600 text-[9px] font-bold text-white">PDF</div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-800">{values?.header_filename || (media ? media.split("/").pop() : "document.pdf")}</p>
+              <p className="text-xs text-slate-500">PDF</p>
+            </div>
+          </div>
+        )}
+        {["video", "gif"].includes(spec.header_format) && (
           <div className="m-1 rounded-md bg-slate-100 p-6 text-center text-xs text-slate-500">{spec.header_format} header</div>
         )}
         <div className="px-3 pb-1.5 pt-2">

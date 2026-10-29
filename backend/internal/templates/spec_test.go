@@ -67,3 +67,27 @@ func TestDirectShopLink(t *testing.T) {
 		t.Fatal("missing shop page accepted")
 	}
 }
+
+func TestDocumentHeader(t *testing.T) {
+	spec, err := Parse(json.RawMessage(`[
+	 {"type":"header","format":"document","example_parameters":[{"type":"document","url":"https://x.example/sample.pdf"}]},
+	 {"type":"body","text":"Our new catalogue is attached."}
+	]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spec.HeaderFormat != "document" || spec.HeaderExampleURL == "" {
+		t.Fatalf("document header not parsed: %+v", spec)
+	}
+	v := Variables{HeaderMediaURL: "https://shop.example/media/abc.pdf", HeaderFilename: "Winter-Catalogue.pdf"}
+	if err := spec.Validate(v); err != nil {
+		t.Fatal(err)
+	}
+	p := spec.Build(v, "", "Customer", "")[0].Parameters[0]
+	if p.Type != "document" || p.URL != v.HeaderMediaURL || p.Filename != "Winter-Catalogue.pdf" {
+		t.Fatalf("bad document param: %+v", p)
+	}
+	if spec.Validate(Variables{}) == nil {
+		t.Fatal("missing PDF accepted")
+	}
+}

@@ -39,6 +39,7 @@ type Spec struct {
 // Variables are the values a campaign supplies for its template.
 type Variables struct {
 	HeaderMediaURL string     `json:"header_media_url"`
+	HeaderFilename string     `json:"header_filename"` // name customers see on a PDF header
 	HeaderText     []string   `json:"header_text"`
 	Body           []string   `json:"body"`
 	Buttons        [][]string `json:"buttons"`  // values for untracked buttons, by button index
@@ -237,8 +238,15 @@ func (s Spec) Build(v Variables, contactName, nameFallback, trackingSuffix strin
 		return res
 	}
 	switch s.HeaderFormat {
-	case "image", "video", "gif", "document":
+	case "image", "video", "gif":
 		out = append(out, bird.Component{Type: "header", Parameters: []bird.Param{{Type: s.HeaderFormat, URL: v.HeaderMediaURL}}})
+	case "document":
+		// Without a filename the document arrives untitled.
+		name := strings.TrimSpace(v.HeaderFilename)
+		if name == "" {
+			name = "document.pdf"
+		}
+		out = append(out, bird.Component{Type: "header", Parameters: []bird.Param{{Type: "document", URL: v.HeaderMediaURL, Filename: name}}})
 	case "text":
 		if len(s.HeaderParams) > 0 {
 			out = append(out, bird.Component{Type: "header", Parameters: textParams(s.HeaderParams, v.HeaderText)})

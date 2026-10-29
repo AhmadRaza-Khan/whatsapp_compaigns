@@ -253,6 +253,19 @@ func TestE2E(t *testing.T) {
 	if code := c.upload("/api/uploads/image", "evil.png", "<script>alert(1)</script>", nil, &struct{}{}); code != 400 {
 		t.Fatalf("non-image accepted: %d", code)
 	}
+	// PDF header upload: served as a PDF, with a clean name customers will see.
+	var doc struct{ URL, Filename string }
+	pdf := "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
+	if code := c.upload("/api/uploads/document", "Winter Catalogue (final)!.pdf", pdf, nil, &doc); code != 201 || doc.Filename != "Winter Catalogue final.pdf" {
+		t.Fatalf("pdf upload failed: %d %+v", code, doc)
+	}
+	if resp, _ := http.Get(apiSrv.URL + strings.TrimPrefix(doc.URL, cfg.PublicURL)); resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "application/pdf" {
+		t.Fatalf("uploaded pdf not served: %d %s", resp.StatusCode, resp.Header.Get("Content-Type"))
+	}
+	if code := c.upload("/api/uploads/document", "fake.pdf", "not really a pdf", nil, &struct{}{}); code != 400 {
+		t.Fatalf("non-pdf accepted as document: %d", code)
+	}
+
 	for _, p := range []string{"/media/../go.mod", "/media/00000000000000000000000000000000.png"} {
 		if resp, _ := http.Get(apiSrv.URL + p); resp.StatusCode != 404 {
 			t.Fatalf("%s should be 404, got %d", p, resp.StatusCode)

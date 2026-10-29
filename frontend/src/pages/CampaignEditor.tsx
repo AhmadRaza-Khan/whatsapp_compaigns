@@ -8,9 +8,10 @@ import { fmtDuration, fmtMoney, fmtNum, qatarNowInput } from "../lib/format";
 import { useAuth } from "../auth";
 import TemplatePreview from "../components/TemplatePreview";
 import ImageUpload from "../components/ImageUpload";
+import DocumentUpload from "../components/DocumentUpload";
 import { Button, Card, Field, Input, Loading, Modal, PageHeader, Select, useToast } from "../components/ui";
 
-const emptyVars: Variables = { header_media_url: "", header_text: [], body: [], buttons: [], shop_url: "" };
+const emptyVars: Variables = { header_media_url: "", header_filename: "", header_text: [], body: [], buttons: [], shop_url: "" };
 const emptyAudience: Audience = { all: false, group_ids: [], tags: [] };
 
 export default function CampaignEditor() {
@@ -69,7 +70,7 @@ export default function CampaignEditor() {
     const m: string[] = [];
     if (!name.trim()) m.push("campaign name");
     if (!template) return [...m, "template"];
-    if (["image", "video", "document", "gif"].includes(spec!.header_format) && !vars.header_media_url) m.push(spec!.header_format === "image" ? "header image" : `${spec!.header_format} link`);
+    if (["image", "video", "document", "gif"].includes(spec!.header_format) && !vars.header_media_url) m.push(spec!.header_format === "image" ? "header image" : spec!.header_format === "document" ? "header PDF" : `${spec!.header_format} link`);
     spec!.body_params?.forEach((_, i) => !vars.body[i]?.trim() && m.push(`message value ${i + 1}`));
     spec!.header_params?.forEach((_, i) => !vars.header_text[i]?.trim() && m.push(`header value ${i + 1}`));
     spec!.buttons?.forEach((b, i) => {
@@ -183,7 +184,15 @@ export default function CampaignEditor() {
                   {spec.header_format === "image" && (
                     <ImageUpload label="Header image" value={vars.header_media_url} onChange={(url) => setVars({ ...vars, header_media_url: url })} />
                   )}
-                  {["video", "document", "gif"].includes(spec.header_format) && (
+                  {spec.header_format === "document" && (
+                    <DocumentUpload
+                      label="Header PDF"
+                      url={vars.header_media_url}
+                      filename={vars.header_filename ?? ""}
+                      onChange={(url, filename) => setVars({ ...vars, header_media_url: url, header_filename: filename })}
+                    />
+                  )}
+                  {["video", "gif"].includes(spec.header_format) && (
                     <Field label={`${spec.header_format[0].toUpperCase()}${spec.header_format.slice(1)} link`} hint="A public https:// link to the file.">
                       <Input value={vars.header_media_url} onChange={(e) => setVars({ ...vars, header_media_url: e.target.value })} placeholder={spec.header_example_url || "https://…/collection.jpg"} />
                     </Field>

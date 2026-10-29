@@ -137,6 +137,8 @@ type Param struct {
 	Name string `json:"name,omitempty"`
 	Text string `json:"text,omitempty"`
 	URL  string `json:"url,omitempty"`
+	// Filename is the name shown on a document header; sent only for documents.
+	Filename string `json:"filename,omitempty"`
 }
 
 type Component struct {

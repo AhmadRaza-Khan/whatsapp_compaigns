@@ -112,6 +112,7 @@ export interface Template {
 
 export interface Variables {
   header_media_url: string;
+  header_filename?: string;
   header_text: string[];
   body: string[];
   buttons: string[][];
