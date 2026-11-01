@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"regexp"
 	"strings"
 	"time"
@@ -210,4 +211,44 @@ func (s *Server) createTemplate(c *gin.Context) {
 	}
 	_, _ = templates.Sync(c, s.db, s.bird)
 	c.JSON(201, gin.H{"ok": true, "slug": in.Slug})
+}
+
+// deleteTemplate deletes a template in Bird (and so at WhatsApp) and removes
+// it from the platform. Campaigns that are scheduled or sending block it.
+func (s *Server) deleteTemplate(c *gin.Context) {
+	slug := c.Param("slug")
+	if strings.HasPrefix(slug, "bird_") {
+		fail(c, 400, "Bird's built-in templates cannot be deleted")
+		return
+	}
+	var active []string
+	rows, err := s.db.Query(c, `SELECT name FROM campaigns WHERE template_slug=$1 AND status IN ('scheduled','sending','paused') ORDER BY id`, slug)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	for rows.Next() {
+		var n string
+		if rows.Scan(&n) == nil {
+			active = append(active, n)
+		}
+	}
+	rows.Close()
+	if len(active) > 0 {
+		fail(c, 409, "This template is used by campaigns that are scheduled or sending: "+strings.Join(active, ", ")+". Cancel or finish them first.")
+		return
+	}
+
+	if err := s.bird.DeleteTemplate(c, slug); err != nil {
+		var ae *bird.APIError
+		if !(errors.As(err, &ae) && ae.Status == 404) { // already gone at Bird: just clean up here
+			fail(c, 502, "Bird could not delete the template: "+err.Error())
+			return
+		}
+	}
+	if _, err := s.db.Exec(c, `DELETE FROM templates WHERE slug=$1`, slug); err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"ok": true})
 }

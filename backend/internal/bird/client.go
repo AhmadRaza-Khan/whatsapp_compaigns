@@ -289,6 +289,12 @@ type SubmitResult struct {
 	} `json:"errors"`
 }
 
+// DeleteTemplate removes a workspace template and all its languages, at Bird
+// and then at WhatsApp.
+func (c *Client) DeleteTemplate(ctx context.Context, slug string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/whatsapp/templates/"+url.PathEscape(slug), nil, nil, nil)
+}
+
 func (c *Client) SubmitTemplateVersion(ctx context.Context, slug, versionID string) (*SubmitResult, error) {
 	var out SubmitResult
 	path := fmt.Sprintf("/v1/whatsapp/templates/%s/versions/%s/submit", url.PathEscape(slug), url.PathEscape(versionID))

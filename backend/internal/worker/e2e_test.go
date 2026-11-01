@@ -92,6 +92,8 @@ func (f *fakeBird) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"languages":{"en":{"status":"approved"}},"live_version_id":"wav_1"}],"next_cursor":null}`)
 	case r.Method == "GET" && strings.HasPrefix(r.URL.Path, "/v1/whatsapp/templates/"):
 		fmt.Fprintf(w, `{"language":"en","status":"approved","components":%s}`, launchComponents)
+	case r.Method == "DELETE" && strings.HasPrefix(r.URL.Path, "/v1/whatsapp/templates/"):
+		w.WriteHeader(204)
 	case r.Method == "POST" && r.URL.Path == "/v1/preferences":
 		var p map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&p)
@@ -586,6 +588,26 @@ func TestE2E(t *testing.T) {
 	bad.Header.Set("webhook-signature", "v1,AAAA")
 	if resp, _ := http.DefaultClient.Do(bad); resp.StatusCode != 401 {
 		t.Fatalf("bad signature accepted: %d", resp.StatusCode)
+	}
+
+	// Template delete: blocked while a campaign using it is scheduled.
+	future := newCampaign("Later")
+	later := time.Now().In(api.Qatar).Add(2 * time.Hour).Format("2006-01-02T15:04")
+	c.do("POST", fmt.Sprintf("/api/campaigns/%d/send", future), map[string]string{"scheduled_at": later}, nil)
+	if code := c.do("DELETE", "/api/templates/collection_launch", nil, nil); code != 409 {
+		t.Fatalf("template in use by a scheduled campaign was deleted: %d", code)
+	}
+	if code := staff.do("DELETE", "/api/templates/collection_launch", nil, nil); code != 403 {
+		t.Fatalf("staff could delete a template: %d", code)
+	}
+	c.do("POST", fmt.Sprintf("/api/campaigns/%d/unschedule", future), nil, nil)
+	if code := c.do("DELETE", "/api/templates/collection_launch", nil, nil); code != 200 {
+		t.Fatalf("template delete failed: %d", code)
+	}
+	var left []struct{ Slug string }
+	c.do("GET", "/api/templates", nil, &left)
+	if len(left) != 0 {
+		t.Fatalf("template still listed after delete: %+v", left)
 	}
 
 	cancel()

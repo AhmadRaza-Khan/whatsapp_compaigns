@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, FileText, MousePointerClick, Plus, RefreshCw } from "lucide-react";
+import { ExternalLink, FileText, MousePointerClick, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
 import type { Template, TemplateSpec } from "../lib/types";
 import { fmtDateTime } from "../lib/format";
@@ -25,6 +25,19 @@ export default function Templates() {
     },
     onError: toast.error,
   });
+
+  const remove = useMutation({
+    mutationFn: (slug: string) => api.del(`/templates/${slug}`),
+    onSuccess: () => {
+      toast.success("Template deleted in Bird and WhatsApp");
+      qc.invalidateQueries({ queryKey: ["templates"] });
+    },
+    onError: toast.error,
+  });
+  const confirmDelete = (t: Template) =>
+    window.confirm(
+      `Delete "${t.name || t.slug}"?\n\nIt is removed from Bird and WhatsApp and cannot be undone. Draft campaigns using it will need another template. WhatsApp blocks reusing the same template ID for about 30 days.`,
+    ) && remove.mutate(t.slug);
 
   return (
     <>
@@ -61,7 +74,14 @@ export default function Templates() {
                   <p className="truncate font-semibold text-slate-900">{t.name || t.slug}</p>
                   <p className="truncate font-mono text-xs text-slate-500">{t.slug}</p>
                 </div>
-                <StatusBadge status={t.status} />
+                <div className="flex shrink-0 items-center gap-1">
+                  <StatusBadge status={t.status} />
+                  {user?.role === "admin" && (
+                    <Button variant="ghost" size="sm" title="Delete template" disabled={remove.isPending && remove.variables === t.slug} onClick={() => confirmDelete(t)}>
+                      <Trash2 className="size-4 text-red-500" />
+                    </Button>
+                  )}
+                </div>
               </div>
               <div className="flex-1 p-4">
                 <TemplatePreview spec={t.spec} />

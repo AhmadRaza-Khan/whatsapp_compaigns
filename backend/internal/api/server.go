@@ -124,6 +124,7 @@ func (s *Server) Router() *gin.Engine {
 	admin.POST("/contacts/:id/opt-in", s.optInContact)
 	admin.POST("/contacts/sync-opt-outs", s.syncOptOuts)
 	admin.POST("/templates", s.createTemplate)
+	admin.DELETE("/templates/:slug", s.deleteTemplate)
 	admin.GET("/users", s.listUsers)
 	admin.POST("/users", s.createUser)
 	admin.PUT("/users/:id", s.updateUser)
