@@ -29,6 +29,7 @@ type Worker struct {
 	settings    settings.Settings
 	settingsAt  time.Time
 	lastSendAt  time.Time
+	pauseUntil  time.Time // set when Bird rate-limits us; all sending waits
 	campaignMem map[int64]*campaignCache
 }
 

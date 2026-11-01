@@ -41,6 +41,11 @@ func (w *Worker) sendLoop(ctx context.Context) {
 			rate = 1
 		}
 		interval := time.Minute / time.Duration(rate)
+		if wait := time.Until(w.pauseUntil); wait > 0 {
+			if !sleepCtx(ctx, wait) {
+				return
+			}
+		}
 		if wait := time.Until(w.lastSendAt.Add(interval)); wait > 0 {
 			if !sleepCtx(ctx, wait) {
 				return
@@ -176,6 +181,19 @@ func (w *Worker) process(ctx context.Context, j *job) bool {
 		}
 		w.requeue(ctx, j.id, 0, err.Error(), true)
 		w.pause(ctx, j.campaignID, reason)
+	case isAPI && ae.Status == 429:
+		// Bird's own rate limit: wait as long as it asks, pause all sending, and
+		// don't count this as a failed attempt. Usually means the Bird plan
+		// allows fewer messages per minute than the Send speed setting.
+		wait := ae.RetryAfter
+		if wait <= 0 {
+			wait = time.Minute
+		}
+		wait = min(wait, 10*time.Minute)
+		w.pauseUntil = time.Now().Add(wait)
+		w.requeue(ctx, j.id, wait, "Bird asked us to slow down; retrying automatically", true)
+		slog.Warn("bird rate limit; pausing sends", "wait", wait.String(), "hint", "lower Settings > Send speed to match the Bird plan")
+		return true
 	case bird.IsTemporary(err) && j.attempts < maxAttempts:
 		backoff := time.Duration(30*(1<<(2*(j.attempts-1)))) * time.Second // 30s, 2m, 8m, 32m
 		w.requeue(ctx, j.id, backoff, err.Error(), false)

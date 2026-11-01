@@ -37,12 +37,14 @@ var webhookSecret = "whsec_" + base64.StdEncoding.EncodeToString([]byte("e2e-tes
 
 // fakeBird mimics the Bird endpoints the platform uses.
 type fakeBird struct {
-	mu        sync.Mutex
-	byKey     map[string]string // idempotency key -> message id
-	sends     map[string]int    // phone -> real (non-replayed) sends
-	requests  []bird.SendRequest
-	prefs     []string
-	failPhone string // returns 500 for this number
+	mu         sync.Mutex
+	byKey      map[string]string // idempotency key -> message id
+	sends      map[string]int    // phone -> real (non-replayed) sends
+	requests   []bird.SendRequest
+	prefs      []string
+	failPhone  string // returns 500 for this number
+	limitPhone string // returns one 429 (Retry-After: 1) for this number
+	limitHits  int
 }
 
 func newFakeBird() *fakeBird {
@@ -64,6 +66,13 @@ func (f *fakeBird) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == "POST" && r.URL.Path == "/v1/whatsapp/messages":
 		var req bird.SendRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
+		if req.To == f.limitPhone && f.limitHits == 0 {
+			f.limitHits++
+			w.Header().Set("Retry-After", "1")
+			w.WriteHeader(429)
+			_, _ = w.Write([]byte(`{"error":{"code":"E01003","message":"Too many requests."}}`))
+			return
+		}
 		if req.To == f.failPhone {
 			w.WriteHeader(500)
 			_, _ = w.Write([]byte(`{"code":"internal","message":"temporary"}`))
@@ -533,6 +542,7 @@ func TestE2E(t *testing.T) {
 	// Pause / resume / cancel and temporary-error retry.
 	fb.mu.Lock()
 	fb.failPhone = "+97450000000"
+	fb.limitPhone = "+97450000001"
 	fb.mu.Unlock()
 	var res struct{ ID int64 }
 	c.do("POST", "/api/campaigns", map[string]any{"name": "Everyone", "template_slug": "collection_launch",
@@ -562,6 +572,18 @@ func TestE2E(t *testing.T) {
 	_ = pool.QueryRow(ctx, `SELECT status, attempts FROM campaign_recipients WHERE campaign_id=$1 AND phone=$2`, res.ID, "+97450000000").Scan(&retry.Status, &retry.Attempts)
 	if retry.Status != "pending" || retry.Attempts != 1 {
 		t.Fatalf("temporary error not queued for retry: %+v", retry)
+	}
+	// Bird 429: waits and retries without using up attempts.
+	var limited struct {
+		Status   string
+		Attempts int
+	}
+	_ = pool.QueryRow(ctx, `SELECT status, attempts FROM campaign_recipients WHERE campaign_id=$1 AND phone=$2`, res.ID, "+97450000001").Scan(&limited.Status, &limited.Attempts)
+	fb.mu.Lock()
+	hits := fb.limitHits
+	fb.mu.Unlock()
+	if hits != 1 || limited.Status != "accepted" || limited.Attempts != 1 {
+		t.Fatalf("after one 429 the message should be sent using a single attempt: hits=%d %+v", hits, limited)
 	}
 	c.do("POST", fmt.Sprintf("/api/campaigns/%d/cancel", res.ID), nil, nil)
 	var pendingLeft int

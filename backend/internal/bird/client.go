@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -29,10 +31,11 @@ func (c *Client) Configured() bool { return c.apiKey != "" }
 
 // APIError is a non-2xx response from Bird.
 type APIError struct {
-	Status  int
-	Code    string
-	Message string
-	Body    string
+	Status     int
+	Code       string
+	Message    string
+	Body       string
+	RetryAfter time.Duration // from the Retry-After header on 429/503
 }
 
 func (e *APIError) Error() string {
@@ -91,12 +94,28 @@ func (c *Client) do(ctx context.Context, method, path string, body any, headers 
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if resp.StatusCode >= 300 {
-		return parseError(resp.StatusCode, raw)
+		err := parseError(resp.StatusCode, raw)
+		err.(*APIError).RetryAfter = retryAfter(resp.Header.Get("Retry-After"))
+		return err
 	}
 	if out != nil && len(raw) > 0 {
 		return json.Unmarshal(raw, out)
 	}
 	return nil
+}
+
+// retryAfter reads a Retry-After header given in seconds or as an HTTP date.
+func retryAfter(v string) time.Duration {
+	if v == "" {
+		return 0
+	}
+	if secs, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second
+	}
+	if t, err := http.ParseTime(v); err == nil {
+		return time.Until(t)
+	}
+	return 0
 }
 
 func parseError(status int, raw []byte) error {
