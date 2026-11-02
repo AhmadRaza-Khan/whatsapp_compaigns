@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -273,6 +274,21 @@ func (s *Server) getCampaign(c *gin.Context) {
 		}
 		rows.Close()
 		resp["failure_reasons"] = reasons
+	}
+	// Failed recipients per Meta error code, for the Retry / Delete actions.
+	metaRows, err := s.db.Query(c, `SELECT substring(error_reason from '\(Meta (\d+)\)'), count(*) FROM campaign_recipients
+		WHERE campaign_id=$1 AND status='failed' AND error_reason LIKE '%(Meta %' GROUP BY 1`, id)
+	if err == nil {
+		meta := map[string]int{}
+		for metaRows.Next() {
+			var code *string
+			var n int
+			if metaRows.Scan(&code, &n) == nil && code != nil {
+				meta[*code] = n
+			}
+		}
+		metaRows.Close()
+		resp["meta_failures"] = meta
 	}
 	c.JSON(200, resp)
 }
@@ -623,4 +639,91 @@ func (s *Server) exportRecipients(c *gin.Context) {
 			r.ErrorCode, csvSafe(r.ErrorReason), cost, mid})
 	}
 	w.Flush()
+}
+
+var metaCodeRe = regexp.MustCompile(`^\d{3,7}$`)
+
+func metaCode(c *gin.Context) (string, bool) {
+	var in struct {
+		Code string `json:"code"`
+	}
+	_ = c.ShouldBindJSON(&in)
+	if !metaCodeRe.MatchString(in.Code) {
+		fail(c, 400, "a Meta error code is required, e.g. 131049")
+		return "", false
+	}
+	return "%(Meta " + in.Code + ")%", true
+}
+
+// retryFailed re-sends recipients that failed with one Meta error code. Each
+// becomes a new send round (new idempotency key); the earlier attempt's cost is
+// kept in prior_cost.
+func (s *Server) retryFailed(c *gin.Context) {
+	id, ok := idParam(c)
+	if !ok {
+		return
+	}
+	pattern, ok := metaCode(c)
+	if !ok {
+		return
+	}
+	tx, err := s.db.Begin(c)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	defer tx.Rollback(c)
+	var status string
+	if err := tx.QueryRow(c, `SELECT status FROM campaigns WHERE id=$1 FOR UPDATE`, id).Scan(&status); err != nil {
+		fail(c, 404, "campaign not found")
+		return
+	}
+	if status == "draft" || status == "scheduled" {
+		fail(c, 409, "This campaign has not been sent yet")
+		return
+	}
+	tag, err := tx.Exec(c, `UPDATE campaign_recipients SET status='pending', attempts=0, next_attempt_at=now(), locked_at=NULL,
+		send_round=send_round+1, bird_message_id=NULL, error_code='', error_reason='',
+		accepted_at=NULL, sent_at=NULL, delivered_at=NULL, read_at=NULL, failed_at=NULL,
+		prior_cost=prior_cost+coalesce(cost,0), cost=NULL, cost_checks=0, updated_at=now()
+		WHERE campaign_id=$1 AND status='failed' AND error_reason LIKE $2 AND contact_id IS NOT NULL`, id, pattern)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	n := tag.RowsAffected()
+	// A finished or cancelled campaign reopens to send just these; on a
+	// cancelled one the rest stay cancelled. A paused one waits for Resume.
+	if n > 0 && (status == "completed" || status == "cancelled") {
+		if _, err := tx.Exec(c, `UPDATE campaigns SET status='sending', completed_at=NULL, status_reason='', updated_at=now() WHERE id=$1`, id); err != nil {
+			serverError(c, err)
+			return
+		}
+	}
+	if err := tx.Commit(c); err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"retried": n})
+}
+
+// deleteFailedContacts deletes the contacts whose message failed with one Meta
+// error code. The campaign keeps its report rows (contact link cleared).
+func (s *Server) deleteFailedContacts(c *gin.Context) {
+	id, ok := idParam(c)
+	if !ok {
+		return
+	}
+	pattern, ok := metaCode(c)
+	if !ok {
+		return
+	}
+	tag, err := s.db.Exec(c, `DELETE FROM contacts WHERE id IN (
+		SELECT contact_id FROM campaign_recipients
+		WHERE campaign_id=$1 AND status='failed' AND error_reason LIKE $2 AND contact_id IS NOT NULL)`, id, pattern)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(200, gin.H{"deleted": tag.RowsAffected()})
 }

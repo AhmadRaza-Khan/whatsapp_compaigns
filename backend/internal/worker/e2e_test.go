@@ -373,7 +373,7 @@ func TestE2E(t *testing.T) {
 	var stuckPhone string
 	_ = pool.QueryRow(ctx, `SELECT id, phone FROM campaign_recipients WHERE campaign_id=$1 ORDER BY id LIMIT 1`, camp1).Scan(&stuckID, &stuckPhone)
 	fb.mu.Lock()
-	fb.byKey[IdempotencyKey(camp1, stuckID)] = "wam_crashed"
+	fb.byKey[IdempotencyKey(camp1, stuckID, 0)] = "wam_crashed"
 	fb.sends[stuckPhone]++
 	fb.mu.Unlock()
 	_, _ = pool.Exec(ctx, `UPDATE campaign_recipients SET status='sending', locked_at=now(), attempts=1 WHERE id=$1`, stuckID)
@@ -409,7 +409,7 @@ func TestE2E(t *testing.T) {
 	}
 	lastReq := fb.requests[len(fb.requests)-1]
 	fb.mu.Unlock()
-	if lastReq.From != "+97440000000" || len(lastReq.Template.Components) != 3 || len(lastReq.Tags) != 3 {
+	if lastReq.From != "+97440000000" || len(lastReq.Template.Components) != 3 || len(lastReq.Tags) != 4 {
 		t.Errorf("unexpected send payload: %+v", lastReq)
 	}
 	var stuckMID string
@@ -611,6 +611,108 @@ func TestE2E(t *testing.T) {
 	if resp, _ := http.DefaultClient.Do(bad); resp.StatusCode != 401 {
 		t.Fatalf("bad signature accepted: %d", resp.StatusCode)
 	}
+
+	// Meta 131049 retry and 131048 contact delete on the completed scheduled campaign.
+	type r2row struct {
+		ID         int64
+		Phone, MID string
+		ContactID  int64
+	}
+	var r2 []r2row
+	rows2, _ := pool.Query(ctx, `SELECT id, phone, bird_message_id, contact_id FROM campaign_recipients WHERE campaign_id=$1 ORDER BY id LIMIT 2`, camp2)
+	for rows2.Next() {
+		var r r2row
+		_ = rows2.Scan(&r.ID, &r.Phone, &r.MID, &r.ContactID)
+		r2 = append(r2, r)
+	}
+	rows2.Close()
+	failWith := func(r r2row, mid, round, meta string) {
+		c.webhook("whatsapp.failed", map[string]any{"whatsapp_id": mid, "direction": "outbound", "to": map[string]string{"phone_number": r.Phone},
+			"tags":  []map[string]string{{"name": "recipient_id", "value": strconv.FormatInt(r.ID, 10)}, {"name": "send_round", "value": round}},
+			"error": map[string]any{"code": "meta_" + meta, "description": "Meta says no", "meta_error_code": meta}})
+	}
+	failWith(r2[0], r2[0].MID, "0", "131049")
+	failWith(r2[1], r2[1].MID, "0", "131048")
+	var det struct {
+		Campaign     struct{ Status string }
+		MetaFailures map[string]int `json:"meta_failures"`
+	}
+	waitFor(t, "meta failures in report", 10*time.Second, func() bool {
+		c.do("GET", fmt.Sprintf("/api/campaigns/%d", camp2), nil, &det)
+		return det.MetaFailures["131049"] == 1 && det.MetaFailures["131048"] == 1
+	})
+	var rr struct{ Retried, Deleted int }
+	if code := c.do("POST", fmt.Sprintf("/api/campaigns/%d/retry-failed", camp2), map[string]string{"code": "131049"}, &rr); code != 200 || rr.Retried != 1 {
+		t.Fatalf("retry 131049: %d %+v", code, rr)
+	}
+	c.do("GET", fmt.Sprintf("/api/campaigns/%d", camp2), nil, &det)
+	if det.Campaign.Status != "sending" && det.Campaign.Status != "completed" {
+		t.Fatalf("completed campaign should reopen for the retry, got %s", det.Campaign.Status)
+	}
+	var newMID string
+	var round int
+	waitFor(t, "131049 recipient re-sent", 15*time.Second, func() bool {
+		var st string
+		_ = pool.QueryRow(ctx, `SELECT status, coalesce(bird_message_id,''), send_round FROM campaign_recipients WHERE id=$1`, r2[0].ID).Scan(&st, &newMID, &round)
+		return st == "accepted" && round == 1
+	})
+	if newMID == r2[0].MID {
+		t.Fatal("retry replayed the old message instead of sending a new one")
+	}
+	fb.mu.Lock()
+	sends := fb.sends[r2[0].Phone]
+	fb.mu.Unlock()
+	if sends != 3 { // campaign 1, campaign 2, and the retry
+		t.Fatalf("expected a genuine new send for the retry, phone sent %d times", sends)
+	}
+	failWith(r2[0], r2[0].MID, "0", "131049") // late event for the old send
+	time.Sleep(3 * time.Second)
+	var retriedStatus string
+	_ = pool.QueryRow(ctx, `SELECT status FROM campaign_recipients WHERE id=$1`, r2[0].ID).Scan(&retriedStatus)
+	if retriedStatus != "accepted" {
+		t.Fatalf("late event for the earlier send overwrote the retry: %s", retriedStatus)
+	}
+	if code := c.do("POST", fmt.Sprintf("/api/campaigns/%d/delete-failed-contacts", camp2), map[string]string{"code": "131048"}, &rr); code != 200 || rr.Deleted != 1 {
+		t.Fatalf("delete 131048 contacts: %d %+v", code, rr)
+	}
+	var contactLeft, rowLeft int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM contacts WHERE id=$1`, r2[1].ContactID).Scan(&contactLeft)
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM campaign_recipients WHERE id=$1 AND contact_id IS NULL`, r2[1].ID).Scan(&rowLeft)
+	if contactLeft != 0 || rowLeft != 1 {
+		t.Fatalf("131048 contact should be deleted but report row kept: contact=%d row=%d", contactLeft, rowLeft)
+	}
+	if code := c.do("POST", fmt.Sprintf("/api/campaigns/%d/retry-failed", camp2), map[string]string{"code": "abc"}, nil); code != 400 {
+		t.Fatalf("invalid code accepted: %d", code)
+	}
+	// Retry on a cancelled campaign sends only the 131049 recipients.
+	var cr r2row
+	_ = pool.QueryRow(ctx, `SELECT id, phone, bird_message_id, contact_id FROM campaign_recipients
+		WHERE campaign_id=$1 AND bird_message_id IS NOT NULL ORDER BY id LIMIT 1`, res.ID).Scan(&cr.ID, &cr.Phone, &cr.MID, &cr.ContactID)
+	var cancelledBefore int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM campaign_recipients WHERE campaign_id=$1 AND status='cancelled'`, res.ID).Scan(&cancelledBefore)
+	failWith(cr, cr.MID, "0", "131049")
+	waitFor(t, "cancelled campaign failure recorded", 10*time.Second, func() bool {
+		det.MetaFailures = nil // json.Unmarshal merges into an existing map
+		c.do("GET", fmt.Sprintf("/api/campaigns/%d", res.ID), nil, &det)
+		return det.MetaFailures["131049"] == 1
+	})
+	rr.Retried = 0
+	if code := c.do("POST", fmt.Sprintf("/api/campaigns/%d/retry-failed", res.ID), map[string]string{"code": "131049"}, &rr); code != 200 || rr.Retried != 1 {
+		t.Fatalf("retry on cancelled campaign: %d %+v", code, rr)
+	}
+	waitFor(t, "only the retried recipient sent", 15*time.Second, func() bool {
+		var st string
+		var cancelledNow int
+		_ = pool.QueryRow(ctx, `SELECT status FROM campaign_recipients WHERE id=$1`, cr.ID).Scan(&st)
+		_ = pool.QueryRow(ctx, `SELECT count(*) FROM campaign_recipients WHERE campaign_id=$1 AND status='cancelled'`, res.ID).Scan(&cancelledNow)
+		return st == "accepted" && cancelledNow == cancelledBefore
+	})
+
+	waitFor(t, "retried campaigns to complete", 20*time.Second, func() bool {
+		var open int
+		_ = pool.QueryRow(ctx, `SELECT count(*) FROM campaigns WHERE id = ANY($1) AND status <> 'completed'`, []int64{camp2, res.ID}).Scan(&open)
+		return open == 0
+	})
 
 	// Template delete: blocked while a campaign using it is scheduled.
 	future := newCampaign("Later")

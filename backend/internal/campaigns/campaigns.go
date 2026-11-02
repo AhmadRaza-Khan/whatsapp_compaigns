@@ -173,7 +173,7 @@ const StatsSQL = `count(*),
 	count(*) FILTER (WHERE r.clicked_at IS NOT NULL),
 	coalesce(sum(r.click_count), 0),
 	count(*) FILTER (WHERE r.replied_at IS NOT NULL),
-	coalesce(sum(r.cost), 0)::float8,
+	(coalesce(sum(r.cost), 0) + coalesce(sum(r.prior_cost), 0))::float8,
 	coalesce(max(r.cost_currency), ''),
 	count(r.cost)`
 

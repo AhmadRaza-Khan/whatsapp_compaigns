@@ -184,6 +184,7 @@ export interface CampaignDetail {
   estimate?: Estimate;
   estimated_cost?: number;
   failure_reasons?: { reason: string; count: number }[];
+  meta_failures?: Record<string, number>;
 }
 
 export interface Recipient {

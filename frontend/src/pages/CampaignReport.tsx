@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Ban, CalendarX, Copy, Download, Pause, Play, Search } from "lucide-react";
+import { AlertTriangle, Ban, CalendarX, Copy, Download, Pause, Play, RotateCcw, Search, UserX } from "lucide-react";
 import { api, qs } from "../lib/api";
 import type { CampaignDetail, Page, Recipient, Reply } from "../lib/types";
 import { fmtDateTime, fmtMoney, fmtNum, pct } from "../lib/format";
@@ -62,7 +62,22 @@ export default function CampaignReport() {
     onError: toast.error,
   });
 
+  const byCode = useMutation({
+    mutationFn: ({ action, code }: { action: "retry-failed" | "delete-failed-contacts"; code: string }) =>
+      api.post<{ retried?: number; deleted?: number }>(`/campaigns/${id}/${action}`, { code }),
+    onSuccess: (r) => {
+      toast.success(r.retried !== undefined ? `${r.retried} message(s) queued to send again` : `${r.deleted} contact(s) deleted`);
+      qc.invalidateQueries({ queryKey: ["campaign", id] });
+      qc.invalidateQueries({ queryKey: ["recipients", id] });
+      qc.invalidateQueries({ queryKey: ["campaigns"] });
+      qc.invalidateQueries({ queryKey: ["contacts"] });
+    },
+    onError: toast.error,
+  });
+
   if (detail.isLoading || !detail.data) return <Loading />;
+  const retryable = detail.data.meta_failures?.["131049"] ?? 0;
+  const spamLimited = detail.data.meta_failures?.["131048"] ?? 0;
   const { campaign: c, stats: s, template } = detail.data;
   const currency = s.cost_currency || detail.data.currency;
   const estimated = detail.data.estimated_cost ?? detail.data.estimate?.estimated_cost ?? 0;
@@ -103,6 +118,19 @@ export default function CampaignReport() {
                 <Ban className="size-4" /> Cancel
               </Button>
             )}
+            {retryable > 0 && ["sending", "paused", "completed", "cancelled"].includes(c.status) && (
+              <Button
+                variant="secondary"
+                loading={byCode.isPending && byCode.variables?.action === "retry-failed"}
+                onClick={() =>
+                  window.confirm(
+                    `Send again to the ${retryable} customer(s) that failed with Meta 131049?\n\nWhatsApp held these back to limit promotional messages per person. Retrying too soon often fails again; waiting at least a day works better.${c.status === "paused" ? "\n\nThis campaign is paused: they will be sent when you press Resume, together with everyone else still waiting." : ""}`,
+                  ) && byCode.mutate({ action: "retry-failed", code: "131049" })
+                }
+              >
+                <RotateCcw className="size-4" /> Retry 131049 ({retryable})
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => act.mutate("duplicate")}>
               <Copy className="size-4" /> Duplicate
             </Button>
@@ -111,6 +139,19 @@ export default function CampaignReport() {
                 <Download className="size-4" /> Export CSV
               </Button>
             </a>
+            {spamLimited > 0 && (
+              <Button
+                variant="danger"
+                loading={byCode.isPending && byCode.variables?.action === "delete-failed-contacts"}
+                onClick={() =>
+                  window.confirm(
+                    `Delete the ${spamLimited} contact(s) whose message failed with Meta 131048?\n\nThey are removed from your contacts and will not receive future campaigns. This cannot be undone.\n\nNote: 131048 means WhatsApp limited how many messages YOUR number can send (spam rate limit), not that these numbers are invalid.`,
+                  ) && byCode.mutate({ action: "delete-failed-contacts", code: "131048" })
+                }
+              >
+                <UserX className="size-4" /> Delete 131048 contacts ({spamLimited})
+              </Button>
+            )}
           </>
         }
       />

@@ -31,6 +31,7 @@ type job struct {
 	name       string
 	token      string
 	attempts   int
+	round      int
 }
 
 func (w *Worker) sendLoop(ctx context.Context) {
@@ -79,8 +80,8 @@ func (w *Worker) claim(ctx context.Context) (*job, error) {
 			WHERE r2.status='pending' AND r2.next_attempt_at <= now() AND c.status='sending'
 			ORDER BY c.started_at, r2.id
 			FOR UPDATE OF r2 SKIP LOCKED LIMIT 1)
-		RETURNING r.id, r.campaign_id, r.contact_id, r.phone, r.contact_name, r.token, r.attempts`).
-		Scan(&j.id, &j.campaignID, &j.contactID, &j.phone, &j.name, &j.token, &j.attempts)
+		RETURNING r.id, r.campaign_id, r.contact_id, r.phone, r.contact_name, r.token, r.attempts, r.send_round`).
+		Scan(&j.id, &j.campaignID, &j.contactID, &j.phone, &j.name, &j.token, &j.attempts, &j.round)
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +105,14 @@ func (w *Worker) campaign(ctx context.Context, id int64) (*campaignCache, error)
 	return cc, nil
 }
 
-// IdempotencyKey is stable per recipient row, so a retry after a crash or a
-// lost response replays Bird's original result instead of sending twice.
-func IdempotencyKey(campaignID, recipientID int64) string {
-	return fmt.Sprintf("campaign/%d/recipient/%d", campaignID, recipientID)
+// IdempotencyKey is stable per recipient row and send round, so a retry after
+// a crash or a lost response replays Bird's original result instead of sending
+// twice, while a deliberate re-send (new round) is a new message.
+func IdempotencyKey(campaignID, recipientID int64, round int) string {
+	if round == 0 {
+		return fmt.Sprintf("campaign/%d/recipient/%d", campaignID, recipientID)
+	}
+	return fmt.Sprintf("campaign/%d/recipient/%d/round/%d", campaignID, recipientID, round)
 }
 
 // process sends one message. It returns true if a request reached Bird
@@ -148,6 +153,7 @@ func (w *Worker) process(ctx context.Context, j *job) bool {
 			{Name: "campaign_id", Value: strconv.FormatInt(j.campaignID, 10)},
 			{Name: "recipient_id", Value: strconv.FormatInt(j.id, 10)},
 			{Name: "contact_id", Value: strconv.FormatInt(*j.contactID, 10)},
+			{Name: "send_round", Value: strconv.Itoa(j.round)},
 		},
 		Metadata: map[string]any{"campaign_id": j.campaignID, "recipient_id": j.id, "contact_id": *j.contactID},
 	}
@@ -157,7 +163,7 @@ func (w *Worker) process(ctx context.Context, j *job) bool {
 
 	sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	msg, err := w.bird.SendTemplate(sendCtx, req, IdempotencyKey(j.campaignID, j.id))
+	msg, err := w.bird.SendTemplate(sendCtx, req, IdempotencyKey(j.campaignID, j.id, j.round))
 	if err == nil {
 		_, err := w.db.Exec(ctx, `UPDATE campaign_recipients SET
 			status = CASE WHEN status IN ('sending','pending','unknown') THEN 'accepted' ELSE status END,

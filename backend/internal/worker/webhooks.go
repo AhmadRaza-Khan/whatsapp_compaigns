@@ -67,6 +67,18 @@ func (m messageData) messageID() string {
 	return m.ID
 }
 
+// sendRound is the round tag of the send this event belongs to (-1 if absent).
+func (m messageData) sendRound() int {
+	for _, t := range m.Tags {
+		if t.Name == "send_round" {
+			if n, err := strconv.Atoi(t.Value); err == nil {
+				return n
+			}
+		}
+	}
+	return -1
+}
+
 func (m messageData) recipientID() int64 {
 	for _, t := range m.Tags {
 		if t.Name == "recipient_id" {
@@ -203,14 +215,23 @@ func (w *Worker) applyStatus(ctx context.Context, status string, d messageData, 
 	var id int64
 	var current string
 	var contactID *int64
-	err := w.db.QueryRow(ctx, `SELECT id, status, contact_id FROM campaign_recipients
+	var rowMID *string
+	var round int
+	err := w.db.QueryRow(ctx, `SELECT id, status, contact_id, bird_message_id, send_round FROM campaign_recipients
 		WHERE id=$1 OR (bird_message_id IS NOT NULL AND bird_message_id=$2) ORDER BY (id=$1) DESC LIMIT 1`,
-		d.recipientID(), mid).Scan(&id, &current, &contactID)
+		d.recipientID(), mid).Scan(&id, &current, &contactID, &rowMID, &round)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil // a test send or a message sent outside the platform
 	}
 	if err != nil {
 		return err
+	}
+	// Ignore late events for an earlier send of a recipient that was re-sent.
+	if r := d.sendRound(); r >= 0 && r != round {
+		return nil
+	}
+	if rowMID != nil && mid != "" && *rowMID != mid {
+		return nil
 	}
 
 	if status == "failed" || status == "rejected" {

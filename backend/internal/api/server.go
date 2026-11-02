@@ -116,6 +116,8 @@ func (s *Server) Router() *gin.Engine {
 	authed.POST("/campaigns/:id/cancel", s.cancelCampaign)
 	authed.POST("/campaigns/:id/unschedule", s.unscheduleCampaign)
 	authed.POST("/campaigns/:id/duplicate", s.duplicateCampaign)
+	authed.POST("/campaigns/:id/retry-failed", s.retryFailed)
+	authed.POST("/campaigns/:id/delete-failed-contacts", s.deleteFailedContacts)
 	authed.GET("/campaigns/:id/recipients", s.listRecipients)
 	authed.GET("/campaigns/:id/replies", s.listReplies)
 	authed.GET("/campaigns/:id/export.csv", s.exportRecipients)
