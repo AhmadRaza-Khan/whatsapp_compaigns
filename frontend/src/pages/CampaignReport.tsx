@@ -6,7 +6,7 @@ import { api, qs } from "../lib/api";
 import type { CampaignDetail, Page, Recipient, Reply } from "../lib/types";
 import { fmtDateTime, fmtMoney, fmtNum, pct } from "../lib/format";
 import TemplatePreview from "../components/TemplatePreview";
-import { Badge, Button, Card, EmptyState, Input, Loading, PageHeader, Pagination, StatCard, StatusBadge, cx, td, th, useToast } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Input, Loading, Modal, PageHeader, Pagination, StatCard, StatusBadge, cx, td, th, useToast } from "../components/ui";
 
 const filters = [
   ["", "All"],
@@ -28,6 +28,7 @@ export default function CampaignReport() {
   const [status, setStatus] = useState("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
+  const [confirming, setConfirming] = useState<"retry" | "delete" | null>(null);
 
   const detail = useQuery({
     queryKey: ["campaign", id],
@@ -66,6 +67,7 @@ export default function CampaignReport() {
     mutationFn: ({ action, code }: { action: "retry-failed" | "delete-failed-contacts"; code: string }) =>
       api.post<{ retried?: number; deleted?: number }>(`/campaigns/${id}/${action}`, { code }),
     onSuccess: (r) => {
+      setConfirming(null);
       toast.success(r.retried !== undefined ? `${r.retried} message(s) queued to send again` : `${r.deleted} contact(s) deleted`);
       qc.invalidateQueries({ queryKey: ["campaign", id] });
       qc.invalidateQueries({ queryKey: ["recipients", id] });
@@ -119,15 +121,7 @@ export default function CampaignReport() {
               </Button>
             )}
             {retryable > 0 && ["sending", "paused", "completed", "cancelled"].includes(c.status) && (
-              <Button
-                variant="secondary"
-                loading={byCode.isPending && byCode.variables?.action === "retry-failed"}
-                onClick={() =>
-                  window.confirm(
-                    `Send again to the ${retryable} customer(s) that failed with Meta 131049?\n\nWhatsApp held these back to limit promotional messages per person. Retrying too soon often fails again; waiting at least a day works better.${c.status === "paused" ? "\n\nThis campaign is paused: they will be sent when you press Resume, together with everyone else still waiting." : ""}`,
-                  ) && byCode.mutate({ action: "retry-failed", code: "131049" })
-                }
-              >
+              <Button variant="secondary" onClick={() => setConfirming("retry")}>
                 <RotateCcw className="size-4" /> Retry 131049 ({retryable})
               </Button>
             )}
@@ -140,15 +134,7 @@ export default function CampaignReport() {
               </Button>
             </a>
             {spamLimited > 0 && (
-              <Button
-                variant="danger"
-                loading={byCode.isPending && byCode.variables?.action === "delete-failed-contacts"}
-                onClick={() =>
-                  window.confirm(
-                    `Delete the ${spamLimited} contact(s) whose message failed with Meta 131048?\n\nThey are removed from your contacts and will not receive future campaigns. This cannot be undone.\n\nNote: 131048 means WhatsApp limited how many messages YOUR number can send (spam rate limit), not that these numbers are invalid.`,
-                  ) && byCode.mutate({ action: "delete-failed-contacts", code: "131048" })
-                }
-              >
+              <Button variant="danger" onClick={() => setConfirming("delete")}>
                 <UserX className="size-4" /> Delete 131048 contacts ({spamLimited})
               </Button>
             )}
@@ -344,6 +330,59 @@ export default function CampaignReport() {
           ← All campaigns
         </Link>
       </p>
+
+      <Modal
+        open={confirming === "retry"}
+        onClose={() => !byCode.isPending && setConfirming(null)}
+        title={`Retry ${fmtNum(retryable)} message(s)?`}
+        footer={
+          <>
+            <Button variant="secondary" disabled={byCode.isPending} onClick={() => setConfirming(null)}>
+              Cancel
+            </Button>
+            <Button loading={byCode.isPending} onClick={() => byCode.mutate({ action: "retry-failed", code: "131049" })}>
+              <RotateCcw className="size-4" /> Retry {fmtNum(retryable)}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-slate-600">
+          <p>
+            This sends the message again to the <b>{fmtNum(retryable)}</b> customer(s) that failed with <b>Meta 131049</b>. Nobody else is sent.
+          </p>
+          <p>WhatsApp held these back to limit promotional messages per person. Retrying too soon often fails again, so waiting at least a day works better.</p>
+          {c.status === "paused" && (
+            <p className="rounded-lg bg-amber-50 p-3 text-amber-800">
+              This campaign is <b>paused</b>. The retried messages go out when you press <b>Resume</b>, together with the {fmtNum(s.queued)} customer(s) still waiting. To send only these, cancel the campaign first, then retry.
+            </p>
+          )}
+        </div>
+      </Modal>
+
+      <Modal
+        open={confirming === "delete"}
+        onClose={() => !byCode.isPending && setConfirming(null)}
+        title={`Delete ${fmtNum(spamLimited)} contact(s)?`}
+        footer={
+          <>
+            <Button variant="secondary" disabled={byCode.isPending} onClick={() => setConfirming(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" loading={byCode.isPending} onClick={() => byCode.mutate({ action: "delete-failed-contacts", code: "131048" })}>
+              <UserX className="size-4" /> Delete {fmtNum(spamLimited)}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-slate-600">
+          <p>
+            This permanently deletes the <b>{fmtNum(spamLimited)}</b> contact(s) whose message failed with <b>Meta 131048</b>. They will not receive future campaigns. This campaign's report keeps their results.
+          </p>
+          <p className="rounded-lg bg-red-50 p-3 text-red-800">
+            131048 means WhatsApp limited how many messages <b>your number</b> can send (for example, more than the daily limit). It does not mean these numbers are wrong. This cannot be undone.
+          </p>
+        </div>
+      </Modal>
     </>
   );
 }

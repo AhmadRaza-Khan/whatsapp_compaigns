@@ -16,3 +16,14 @@
 body {
   @apply bg-[#faf7f5] text-slate-800 antialiased;
 }
+
+/* Tailwind v4 no longer gives buttons a pointer cursor; restore it so they look clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
